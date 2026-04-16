@@ -25,7 +25,7 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "paraph": "file:../paraph-ts",
+    "paraph": "^0.1.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

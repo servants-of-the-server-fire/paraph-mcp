@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import {
   Configuration,
+  AuthApi,
   AccountApi,
   TemplatesApi,
   RequestsApi,
@@ -12,16 +13,15 @@ import {
 import type { SignerInput, RequestStatus } from "paraph";
 
 const apiKey = process.env.PARAPH_API_KEY;
-if (!apiKey) {
-  console.error("PARAPH_API_KEY environment variable is required");
-  process.exit(1);
-}
+const basePath = process.env.PARAPH_BASE_URL || "https://paraph.dev/api/v1";
 
-const config = new Configuration({
-  accessToken: apiKey,
-  basePath: process.env.PARAPH_BASE_URL || "https://paraph.dev/api/v1",
-});
+// No-auth config for unauthenticated endpoints (register).
+const unauthConfig = new Configuration({ basePath });
 
+// Authenticated config — optional so register_account works without a key.
+const config = new Configuration({ accessToken: apiKey, basePath });
+
+const authApi = new AuthApi(unauthConfig);
 const accountApi = new AccountApi(config);
 const templatesApi = new TemplatesApi(config);
 const requestsApi = new RequestsApi(config);
@@ -30,6 +30,19 @@ const server = new McpServer({
   name: "paraph",
   version: "0.1.0",
 });
+
+server.tool(
+  "register_account",
+  "Create a new Paraph account. Sends a verification email — the user must click the link before logging in. After verifying, retrieve your API key from https://paraph.dev and set it as PARAPH_API_KEY.",
+  {
+    email: z.string().email().describe("Email address for the new account"),
+    password: z.string().min(8).describe("Password (minimum 8 characters)"),
+  },
+  async ({ email, password }) => {
+    const res = await authApi.register({ registerRequest: { email, password } });
+    return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
+  },
+);
 
 server.tool("get_account", "Get account info including plan and usage", {}, async () => {
   const res = await accountApi.getAccount();
